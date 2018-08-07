@@ -1,0 +1,28 @@
+#!/bin/bash
+set -e
+
+if [ "$PROJ_VERSION" == "" ]; then
+  echo "must set PROJ_VERSION"
+  exit 1
+fi
+
+# workspace directory
+workspace="$(mktemp -d)"
+
+# output directory
+output="$(mktemp -d)"
+
+# build and package proj for heroku
+pushd $workspace
+curl http://download.osgeo.org/proj/proj-$PROJ_VERSION.tar.gz -s -o - | tar zxf -
+pushd proj-$PROJ_VERSION
+./configure --prefix=$output
+make
+make install
+
+pushd $output
+tar -czf proj-$PROJ_VERSION.tgz *
+aws s3 cp --acl public-read proj-$PROJ_VERSION.tgz s3://$S3_BUCKET/$STACK/
+
+echo $PROJ_VERSION > manifest.proj
+aws s3 cp --acl public-read manifest.proj s3://$S3_BUCKET/$STACK/

@@ -1,0 +1,29 @@
+#!/bin/bash
+set -e
+
+if [ "$GEOS_VERSION" == "" ]; then
+  echo "must set GEOS_VERSION"
+  exit 1
+fi
+
+# workspace directory
+workspace="$(mktemp -d)"
+
+# output directory
+output="$(mktemp -d)"
+
+# build and package geos for heroku
+pushd $workspace
+curl http://download.osgeo.org/geos/geos-$GEOS_VERSION.tar.bz2 -s -o - | tar xjf -
+pushd geos-$GEOS_VERSION
+./configure --prefix=$output
+make
+make install
+
+pushd $output
+tar -czf geos-$GEOS_VERSION.tgz *
+aws s3 cp --acl public-read geos-$GEOS_VERSION.tgz s3://$S3_BUCKET/$STACK/
+
+echo $GEOS_VERSION > manifest.geos
+aws s3 cp --acl public-read manifest.geos s3://$S3_BUCKET/$STACK/
+

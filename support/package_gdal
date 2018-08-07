@@ -1,0 +1,28 @@
+#!/bin/bash
+set -e
+
+if [ "$GDAL_VERSION" == "" ]; then
+  echo "must set GDAL_VERSION"
+  exit 1
+fi
+
+# workspace directory
+workspace="$(mktemp -d)"
+
+# output directory
+output="$(mktemp -d)"
+
+# build and package gdal for heroku
+pushd $workspace
+curl http://download.osgeo.org/gdal/$GDAL_VERSION/gdal-$GDAL_VERSION.tar.gz -s -o - | tar zxf -
+pushd gdal-$GDAL_VERSION
+./configure --prefix=$output
+make
+make install
+
+pushd $output
+tar -czf gdal-$GDAL_VERSION.tgz *
+aws s3 cp --acl public-read gdal-$GDAL_VERSION.tgz s3://$S3_BUCKET/$STACK/
+
+echo $GDAL_VERSION > manifest.gdal
+aws s3 cp --acl public-read manifest.gdal s3://$S3_BUCKET/$STACK/
